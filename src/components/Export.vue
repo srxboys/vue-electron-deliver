@@ -1,6 +1,12 @@
 <template>
   <div class="rx-export rx_no_select">
-    <input class="e-l" ref='input' type="file" @change="onload" text="导入文件" />
+    <input
+      class="e-l"
+      ref="input"
+      type="file"
+      @change="onload"
+      text="导入文件"
+    />
     <div class="e-r">{{ text ? "路径：" + text : "" }}</div>
   </div>
 </template>
@@ -12,34 +18,66 @@ export default {
     text: String
   },
   methods: {
-    onload () {
-      console.log('进来了 导入文件')
-      console.log('input=', this.$refs.input)
-      console.log('input.file=', this.$refs.input.file)
-      const file = this.$refs.input.files
+    onload (event) {
+      const rAbs = false // 是否将文件读取为二进制字符串
+      let workBook = null
+      console.log('进来了 导入文件 event=', event)
+      const files = event.target.files
+      const file = files[0]
       // const fileName = file.name.splict('.')[0]
       // console.log('file=', file, ' fileName=', fileName)
       const reader = new FileReader()
       reader.onload = function (e) {
         console.log('onload e=', e)
+        const data = e.target.result
         /* 解析数据 */
-        const bstr = e.target.result
-        const wb = XLSX.read(bstr, { type: 'binary' })
-        console.log('wb=', wb)
-        /* 获取文件的第一个工作表（WorkSheet） */
-        const wsname = wb.SheetNames[0]
-        const ws = wb.Sheets[wsname]
-        /* 数组转换 */
-        const data = XLSX.utils.sheet_to_json(ws, { header: 1 })
-        /* 进行表格数据更新 */
-        // this.tableData = data;
-        console.log('\n' + data + '\n')
-        /* 进行表格表头数据更新 */
-        // this.cols = getHeaderRow(ws);
-        const heads = this.getHeaderRow(ws)
-        console.log('\n' + heads + '\n')
+        if (rAbs) {
+          workBook = XLSX.read(btoa(this.fixdata(data)), { type: 'base64' })
+        } else {
+          workBook = XLSX.read(data, { type: 'binary' })
+        }
+
+        // const headers = this.getHeaderRow(workBook)
+        console.log('workBook=', workBook)
+        const result = XLSX.utils.sheet_to_json(
+          workBook.Sheets[workBook.SheetNames[0]]
+        )
+        console.log('result type=', typeof result)
+        console.log('result=', result)
+        const resultStr = JSON.stringify(result)
+        console.log('resultStr type=', typeof resultStr)
+        console.log('resultStr=', resultStr)
+
+        const resultObj = JSON.parse(resultStr)
+        console.log('resultObj type=', typeof resultObj)
+        console.log('resultObj=', resultObj)
+
+        // 不可取
+        const text = XLSX.utils.sheet_to_txt(
+          workBook.Sheets[workBook.SheetNames[0]]
+        )
+        console.log('text type=', typeof text)
+        console.log('text=', text)
       }
-      reader.readAsText(file)
+      if (rAbs) {
+        reader.readAsArrayBuffer(file)
+      } else {
+        reader.readAsBinaryString(file)
+      }
+    },
+    fixdata (data) {
+      // 文件流转BinaryString
+      let o = ''
+      let l = 0
+      const w = 10240
+      for (; l < data.byteLength / w; ++l) {
+        o += String.fromCharCode.apply(
+          null,
+          new Uint8Array(data.slice(l * w, l * w + w))
+        )
+        o += String.fromCharCode.apply(null, new Uint8Array(data.slice(l * w)))
+      }
+      return o
     },
     getHeaderRow (sheet) {
       const headers = []
